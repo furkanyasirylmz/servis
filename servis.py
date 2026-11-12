@@ -1,6 +1,7 @@
 """Şirket servis güzergahı arama uygulaması."""
 from __future__ import annotations
 
+import base64
 import difflib
 import html
 import re
@@ -14,12 +15,24 @@ KLASOR = Path(__file__).parent
 # Önce Excel'e, bulunamazsa CSV'ye bakılır.
 VERI_ADAYLARI = [KLASOR / "servis.xlsx", KLASOR / "servis.csv"]
 
-st.set_page_config(page_title="Servis güzergahları", page_icon="🚌", layout="centered")
+
+
+def sayfa_ikonu():
+    """Sekmede görünen ikon: favicon.png varsa o, yoksa emoji."""
+    try:
+        from PIL import Image
+        return Image.open(KLASOR / "favicon.png")
+    except Exception:
+        return "🚌"
+
+
+st.set_page_config(page_title="Servis güzergahları", page_icon=sayfa_ikonu(), layout="centered")
 
 CSS = """
 <style>
 .block-container{max-width:820px;padding-top:2.5rem}
 footer{visibility:hidden}
+.logo{display:block;width:min(260px,70%);height:auto;margin:0 0 1.4rem}
 .kart{border:1px solid rgba(128,128,128,.32);border-radius:12px;padding:16px 18px 14px;margin:0 0 14px}
 .kart .ust{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap;margin-bottom:12px}
 .kart .kimlik{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
@@ -27,12 +40,13 @@ footer{visibility:hidden}
 .plaka .tr{background:#0a3a8f;color:#fff;font-size:.55rem;letter-spacing:0;padding:0 4px 3px;display:flex;align-items:flex-end}
 .plaka .pn{padding:7px 11px 6px;white-space:nowrap}
 .sofor{font-weight:600;font-size:1.05rem}
-.tel{display:inline-block;padding:7px 14px;border-radius:8px;background:var(--primary-color,#0b6e4f);color:#fff !important;text-decoration:none !important;font-weight:600;white-space:nowrap}
+.tel{display:inline-block;padding:7px 14px;border-radius:8px;background:#387c3c;color:#fff !important;text-decoration:none !important;font-weight:600;white-space:nowrap}
+.tel:hover{background:#2e6632}
 .tel.pasif{background:rgba(128,128,128,.25);color:inherit !important}
 .rota{margin:0;line-height:2;font-size:.97rem}
 .rota .sn{font-size:.72rem;opacity:.55;margin-right:4px;font-weight:600}
 .rota .ok{opacity:.4;margin:0 6px}
-.rota mark{background:rgba(250,204,21,.4);color:inherit;border-radius:4px;padding:2px 4px}
+.rota mark{background:rgba(251,192,53,.45);color:inherit;border-radius:4px;padding:2px 4px}
 </style>
 """
 
@@ -153,6 +167,13 @@ def veri_yukle(yol: str, degisim_zamani: float) -> pd.DataFrame:
 # Görünüm
 # ----------------------------------------------------------------------------
 
+@st.cache_data(show_spinner=False)
+def logo_html(degisim_zamani: float) -> str:
+    """logo.png'yi sayfaya gömer (st.image'in büyütme simgesi çıkmasın diye)."""
+    veri = base64.b64encode((KLASOR / "logo.png").read_bytes()).decode()
+    return f'<img class="logo" alt="Sunar" src="data:image/png;base64,{veri}">'
+
+
 def kart_html(grup: pd.DataFrame, vurgulu: set[int]) -> str:
     """Bir servisin kartı. Tek satır HTML: Markdown girintiyi kod bloğu sanmasın."""
     ilk = grup.iloc[0]
@@ -209,6 +230,10 @@ try:
 except Exception as hata:
     st.error(f"`{dosya.name}` okunamadı: {hata}")
     st.stop()
+
+logo = KLASOR / "logo.png"
+if logo.exists():
+    st.markdown(logo_html(logo.stat().st_mtime), unsafe_allow_html=True)
 
 st.title("Servis güzergahları")
 st.caption(f"{df['plaka'].nunique()} servis kayıtlı. Durak, plaka veya şoför adıyla arayabilirsiniz.")
